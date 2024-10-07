@@ -3,14 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Пример</title>
+    <title>WebRTC Мессенджер</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #messages {
+            border: 1px solid #ccc;
+            height: 300px;
+            overflow-y: scroll;
+            margin-bottom: 10px;
+        }
+        .message {
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+    </style>
 </head>
 <body>
-    <h1>P2P Передача данных</h1>
+    <h1>WebRTC Мессенджер</h1>
+    <div id="messages"></div>
     <textarea id="message" placeholder="Введите сообщение"></textarea>
     <button id="send">Отправить</button>
-    <h2>Полученные сообщения:</h2>
-    <div id="messages"></div>
 
     <script>
         const messageInput = document.getElementById('message');
@@ -19,42 +33,39 @@
 
         let localConnection;
         let remoteConnection;
+        let sendChannel;
+        let receiveChannel;
 
+        // Создаем соединение
         function createConnection() {
             localConnection = new RTCPeerConnection();
             remoteConnection = new RTCPeerConnection();
 
+            sendChannel = localConnection.createDataChannel("sendChannel");
+            sendChannel.onopen = () => console.log("Канал открыт");
+            sendChannel.onclose = () => console.log("Канал закрыт");
+
+            // Обработчик для получения сообщений
+            receiveChannel = remoteConnection.ondatachannel = event => {
+                const receiveChannel = event.channel;
+                receiveChannel.onmessage = event => {
+                    displayMessage(event.data);
+                };
+            };
+
             localConnection.onicecandidate = e => {
                 if (e.candidate) {
-                    remoteConnection.addIceCandidate(e.candidate);
+                    remoteConnection.addIceCandidate(e.candidate).catch(console.error);
                 }
             };
 
             remoteConnection.onicecandidate = e => {
                 if (e.candidate) {
-                    localConnection.addIceCandidate(e.candidate);
+                    localConnection.addIceCandidate(e.candidate).catch(console.error);
                 }
             };
 
-            remoteConnection.ondatachannel = e => {
-                const receiveChannel = e.channel;
-                receiveChannel.onmessage = event => {
-                    const msg = document.createElement('div');
-                    msg.textContent = `Получено: ${event.data}`;
-                    messagesDiv.appendChild(msg);
-                };
-            };
-
-            const sendChannel = localConnection.createDataChannel("sendChannel");
-            sendChannel.onopen = () => console.log("Канал открыт");
-            sendChannel.onclose = () => console.log("Канал закрыт");
-
-            sendButton.onclick = () => {
-                const message = messageInput.value;
-                sendChannel.send(message);
-                messageInput.value = '';
-            };
-
+            // Создаем предложение и устанавливаем соединение
             localConnection.createOffer().then(offer => {
                 return localConnection.setLocalDescription(offer);
             }).then(() => {
@@ -66,6 +77,25 @@
             }).then(() => {
                 return localConnection.setRemoteDescription(remoteConnection.localDescription);
             });
+        }
+
+        // Отправка сообщения
+        sendButton.onclick = () => {
+            const message = messageInput.value;
+            if (message && sendChannel.readyState === "open") {
+                sendChannel.send(message);
+                displayMessage(message);
+                messageInput.value = '';
+            }
+        };
+
+        // Отображение сообщения
+        function displayMessage(message) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message';
+            msgDiv.textContent = message;
+            messagesDiv.appendChild(msgDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight; // Прокрутка вниз
         }
 
         createConnection();
