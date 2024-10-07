@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Таблица лидеров</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        table {
+            width: 50%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Таблица лидеров</h1>
+    <form id="leader-form">
+        <input type="text" id="name" placeholder="Имя" required>
+        <input type="number" id="score" placeholder="Очки" required>
+        <button type="submit">Добавить лидера</button>
+    </form>
+
+    <h2>Лидеры:</h2>
+    <table id="leaderboard">
+        <tr>
+            <th>Имя</th>
+            <th>Очки</th>
+        </tr>
+    </table>
+
+    <button id="export">Экспортировать данные</button>
+    <input type="file" id="import" accept=".json">
+
+    <script>
+        const form = document.getElementById('leader-form');
+        const leaderboard = document.getElementById('leaderboard');
+
+        // Функция для обновления таблицы
+        function updateLeaderboard() {
+            const leaders = JSON.parse(localStorage.getItem('leaders')) || [];
+            leaderboard.innerHTML = `
+                <tr>
+                    <th>Имя</th>
+                    <th>Очки</th>
+                </tr>
+            `;
+            leaders.sort((a, b) => b.score - a.score);
+            leaders.forEach(leader => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${leader.name}</td><td>${leader.score}</td>`;
+                leaderboard.appendChild(row);
+            });
+        }
+
+        // Обработчик события для формы
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            const name = document.getElementById('name').value;
+            const score = document.getElementById('score').value;
+
+            const leaders = JSON.parse(localStorage.getItem('leaders')) || [];
+            leaders.push({ name, score: Number(score) });
+            localStorage.setItem('leaders', JSON.stringify(leaders));
+
+            form.reset();
+            updateLeaderboard();
+        });
+
+        // Экспорт данных
+        document.getElementById('export').addEventListener('click', function() {
+            const leaders = localStorage.getItem('leaders');
+            const blob = new Blob([leaders], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'leaders.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Импорт данных
+        document.getElementById('import').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const leaders = JSON.parse(e.target.result);
+                    localStorage.setItem('leaders', JSON.stringify(leaders));
+                    updateLeaderboard();
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // Инициализация таблицы
+        updateLeaderboard();
+    </script>
+</body>
+</html>
